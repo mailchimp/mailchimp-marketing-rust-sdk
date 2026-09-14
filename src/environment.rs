@@ -8,7 +8,7 @@ pub enum Environment {
 impl Environment {
     pub fn url(&self) -> &'static str {
         match self {
-            Self::Default => "https://us1.api.mailchimp.com",
+            Self::Default => "https://api.mailchimp.com",
         }
     }
 }
