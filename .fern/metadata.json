@@ -6,9 +6,9 @@
     "crateName": "mailchimp_marketing",
     "clientClassName": "MailchimpClient"
   },
-  "originGitCommit": "384aaf6a41058d842e2bd8e463c291ffed6c8a46",
+  "originGitCommit": "f1b5e6ecfb06c6c622489ec6bc9ef8d9db831190",
   "originGitCommitIsDirty": false,
   "invokedBy": "ci",
   "ciProvider": "github",
-  "sdkVersion": "0.0.123"
+  "sdkVersion": "0.0.162"
 }
