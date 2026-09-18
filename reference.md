@@ -485,6 +485,701 @@ async fn main() {
 </dl>
 </details>
 
+## Audiences
+<details><summary><code>client.audiences.<a href="/src/api/resources/audiences/client.rs">get_audience_contact_list</a>(audience_id: String, count: Option&lt;Option&lt;i64&gt;&gt;, cursor: Option&lt;Option&lt;String&gt;&gt;, created_before: Option&lt;Option&lt;String&gt;&gt;, created_since: Option&lt;Option&lt;String&gt;&gt;, updated_before: Option&lt;Option&lt;String&gt;&gt;, updated_since: Option&lt;Option&lt;String&gt;&gt;, sort_field: Option&lt;Option&lt;GetAudienceContactListRequestSortField&gt;&gt;, sort_dir: Option&lt;Option&lt;GetAudienceContactListRequestSortDir&gt;&gt;) -> Result&lt;GetAudienceContactListResponse, ApiError&gt;</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get a list of omni-channel contacts for a given audience.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```rust
+use mailchimp_marketing::prelude::*;
+
+#[tokio::main]
+async fn main() {
+    let config = ClientConfig {
+        token: Some("<token>".to_string()),
+        ..Default::default()
+    };
+    let client = MailchimpClient::new(config).expect("Failed to build client");
+    client
+        .audiences
+        .get_audience_contact_list(
+            &"audience_id".to_string(),
+            &GetAudienceContactListQueryRequest {
+                fields: vec![],
+                exclude_fields: vec![],
+                count: None,
+                cursor: None,
+                created_before: None,
+                created_since: None,
+                updated_before: None,
+                updated_since: None,
+                sort_field: None,
+                sort_dir: None,
+            },
+            None,
+        )
+        .await;
+}
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**audience_id:** `String` — The unique ID for the audience.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**fields:** `Option<String>` — A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**exclude_fields:** `Option<String>` — A comma-separated list of fields to exclude. Reference parameters of sub-objects with dot notation.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**count:** `Option<i64>` — The number of records to return. Default value is 10. Maximum value is 1000
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**cursor:** `Option<String>` — Paginate through a collection of records by setting the `cursor` parameter to a `next_cursor` attribute returned by a previous request. Default value fetches the first "page" of results.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**created_before:** `Option<String>` — Restricts the response to contacts created at or before the specified time (inclusive). Uses ISO 8601 format: 2025-04-23T15:41:36+00:00.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**created_since:** `Option<String>` — Restricts the response to contacts created after the specified time (exclusive). Uses ISO 8601 format: 2025-04-23T15:41:36+00:00.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**updated_before:** `Option<String>` — Restricts the response to contacts updated at or before the specified time (inclusive). Uses ISO 8601 format: 2025-04-23T15:41:36+00:00.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**updated_since:** `Option<String>` — Restricts the response to contacts updated after the specified time (exclusive). Uses ISO 8601 format: 2025-04-23T15:41:36+00:00.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**sort_field:** `Option<GetAudienceContactListRequestSortField>` — Specifies the field to sort the returned contacts by.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**sort_dir:** `Option<GetAudienceContactListRequestSortDir>` — Determines the order direction for sorted results.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.audiences.<a href="/src/api/resources/audiences/client.rs">create_audience_contact</a>(audience_id: String, request: CreateAudienceContactRequest, merge_field_validation_mode: Option&lt;Option&lt;CreateAudienceContactRequestMergeFieldValidationMode&gt;&gt;, data_mode: Option&lt;Option&lt;CreateAudienceContactRequestDataMode&gt;&gt;) -> Result&lt;AudiencesContact, ApiError&gt;</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create a new omni-channel contact for an audience.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```rust
+use mailchimp_marketing::prelude::*;
+
+#[tokio::main]
+async fn main() {
+    let config = ClientConfig {
+        token: Some("<token>".to_string()),
+        ..Default::default()
+    };
+    let client = MailchimpClient::new(config).expect("Failed to build client");
+    client
+        .audiences
+        .create_audience_contact(
+            &"audience_id".to_string(),
+            &CreateAudienceContactRequest {
+                ..Default::default()
+            },
+            None,
+        )
+        .await;
+}
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**audience_id:** `String` — The unique ID for the audience.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**email_channel:** `Option<CreateAudienceContactRequestEmailChannel>` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**language:** `Option<String>` — The contact's detected language.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**merge_fields:** `Option<std::collections::HashMap<String, CreateAudienceContactRequestMergeFieldsValue>>` — A dictionary of merge fields where the keys are the merge tags. See the [Merge Fields documentation](https://mailchimp.com/developer/marketing/docs/merge-fields/#structure) for more about the structure.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**sms_channel:** `Option<CreateAudienceContactRequestSmsChannel>` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**tags:** `Option<Vec<CreateAudienceContactRequestTagsItem>>` — An array of tags to add to the contact. Accepts tag name strings or objects with name and status. This operation is append-only; existing tags will be preserved, and only new tags from this array will be added.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**update_existing:** `Option<bool>` — If a contact already exists, update them instead of returning a conflict error. When `true` and a matching contact is found (by email or phone), the existing contact is updated with the provided channel data. Defaults to `false`.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**merge_field_validation_mode:** `Option<CreateAudienceContactRequestMergeFieldValidationMode>` — Defines how merge field validation is handled. When set to `ignore_required_checks`, the API does not raise an error if required merge fields are missing from the request. When set to `strict`, the API enforces validation and returns an error if any required merge field is not provided. If this setting is omitted, `strict` is applied by default.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**data_mode:** `Option<CreateAudienceContactRequestDataMode>` — Indicates the data processing mode. In `historical` mode, contact data changes do not trigger automations or webhooks. In `live mode`, such changes do trigger them.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.audiences.<a href="/src/api/resources/audiences/client.rs">get_audience_contact</a>(audience_id: String, contact_id: String) -> Result&lt;AudiencesContact, ApiError&gt;</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Retrieve a specific omni-channel contact in an audience.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```rust
+use mailchimp_marketing::prelude::*;
+
+#[tokio::main]
+async fn main() {
+    let config = ClientConfig {
+        token: Some("<token>".to_string()),
+        ..Default::default()
+    };
+    let client = MailchimpClient::new(config).expect("Failed to build client");
+    client
+        .audiences
+        .get_audience_contact(
+            &"audience_id".to_string(),
+            &"contact_id".to_string(),
+            &GetAudienceContactQueryRequest {
+                fields: vec![],
+                exclude_fields: vec![],
+            },
+            None,
+        )
+        .await;
+}
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**audience_id:** `String` — The unique ID for the audience.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**contact_id:** `String` — A unique identifier for the contact, which can be a Mailchimp contact ID or a channel hash. A channel hash must follow the format email:[md5_hash] (where the hash is the MD5 of the lowercased email address) or sms:[sha256_hash] (where the hash is the SHA256 of the E.164-formatted phone number).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**fields:** `Option<String>` — A comma-separated list of fields to return. Reference parameters of sub-objects with dot notation.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**exclude_fields:** `Option<String>` — A comma-separated list of fields to exclude. Reference parameters of sub-objects with dot notation.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.audiences.<a href="/src/api/resources/audiences/client.rs">patch_audience_contact</a>(audience_id: String, contact_id: String, request: PatchAudienceContactRequest, merge_field_validation_mode: Option&lt;Option&lt;PatchAudienceContactRequestMergeFieldValidationMode&gt;&gt;, data_mode: Option&lt;Option&lt;PatchAudienceContactRequestDataMode&gt;&gt;) -> Result&lt;AudiencesContact, ApiError&gt;</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Update an existing omni-channel contact.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```rust
+use mailchimp_marketing::prelude::*;
+
+#[tokio::main]
+async fn main() {
+    let config = ClientConfig {
+        token: Some("<token>".to_string()),
+        ..Default::default()
+    };
+    let client = MailchimpClient::new(config).expect("Failed to build client");
+    client
+        .audiences
+        .patch_audience_contact(
+            &"audience_id".to_string(),
+            &"contact_id".to_string(),
+            &PatchAudienceContactRequest {
+                ..Default::default()
+            },
+            None,
+        )
+        .await;
+}
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**audience_id:** `String` — The unique ID for the audience.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**contact_id:** `String` — The unique id for the contact.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**email_channel:** `Option<PatchAudienceContactRequestEmailChannel>` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**language:** `Option<String>` — The contact's detected language.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**merge_fields:** `Option<std::collections::HashMap<String, PatchAudienceContactRequestMergeFieldsValue>>` — A dictionary of merge fields where the keys are the merge tags. See the [Merge Fields documentation](https://mailchimp.com/developer/marketing/docs/merge-fields/#structure) for more about the structure.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**sms_channel:** `Option<PatchAudienceContactRequestSmsChannel>` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**tags:** `Option<Vec<PatchAudienceContactRequestTagsItem>>` — An array of tags to add to the contact. Accepts tag name strings or objects with name and status. This operation is append-only; existing tags will be preserved, and only new tags from this array will be added.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**merge_field_validation_mode:** `Option<PatchAudienceContactRequestMergeFieldValidationMode>` — Defines how merge field validation is handled. When set to `ignore_required_checks`, the API does not raise an error if required merge fields are missing from the request. When set to `strict`, the API enforces validation and returns an error if any required merge field is not provided. If this setting is omitted, `strict` is applied by default.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**data_mode:** `Option<PatchAudienceContactRequestDataMode>` — Indicates the data processing mode. In `historical` mode, contact data changes do not trigger automations or webhooks. In `live mode`, such changes do trigger them.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.audiences.<a href="/src/api/resources/audiences/client.rs">post_audiences_contacts_actions_archive</a>(audience_id: String, contact_id: String) -> Result&lt;(), ApiError&gt;</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Archives a Contact.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```rust
+use mailchimp_marketing::prelude::*;
+
+#[tokio::main]
+async fn main() {
+    let config = ClientConfig {
+        token: Some("<token>".to_string()),
+        ..Default::default()
+    };
+    let client = MailchimpClient::new(config).expect("Failed to build client");
+    client
+        .audiences
+        .post_audiences_contacts_actions_archive(
+            &"audience_id".to_string(),
+            &"contact_id".to_string(),
+            None,
+        )
+        .await;
+}
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**audience_id:** `String` — The unique ID for the audience.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**contact_id:** `String` — The unique id for the contact.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.audiences.<a href="/src/api/resources/audiences/client.rs">post_audiences_contacts_actions_forget</a>(audience_id: String, contact_id: String) -> Result&lt;(), ApiError&gt;</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Forgets a Contact.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```rust
+use mailchimp_marketing::prelude::*;
+
+#[tokio::main]
+async fn main() {
+    let config = ClientConfig {
+        token: Some("<token>".to_string()),
+        ..Default::default()
+    };
+    let client = MailchimpClient::new(config).expect("Failed to build client");
+    client
+        .audiences
+        .post_audiences_contacts_actions_forget(
+            &"audience_id".to_string(),
+            &"contact_id".to_string(),
+            None,
+        )
+        .await;
+}
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**audience_id:** `String` — The unique ID for the audience.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**contact_id:** `String` — The unique id for the contact.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## AuthorizedApps
 <details><summary><code>client.authorized_apps.<a href="/src/api/resources/authorized_apps/client.rs">list</a>(count: Option&lt;Option&lt;i64&gt;&gt;, offset: Option&lt;Option&lt;i64&gt;&gt;) -> Result&lt;ListAuthorizedAppsResponse, ApiError&gt;</code></summary>
 <dl>
@@ -2271,7 +2966,7 @@ async fn main() {
 </dl>
 </details>
 
-<details><summary><code>client.batch_webhooks.<a href="/src/api/resources/batch_webhooks/client.rs">create</a>(request: CreateBatchWebhooksRequest) -> Result&lt;BatchWebhook, ApiError&gt;</code></summary>
+<details><summary><code>client.batch_webhooks.<a href="/src/api/resources/batch_webhooks/client.rs">create</a>(request: CreateBatchWebhooksRequest) -> Result&lt;CreateBatchWebhooksResponse, ApiError&gt;</code></summary>
 <dl>
 <dd>
 
@@ -23204,7 +23899,7 @@ async fn main() {
 </dl>
 </details>
 
-<details><summary><code>client.lists.<a href="/src/api/resources/lists/client.rs">create_webhook</a>(list_id: String, request: AddWebhook) -> Result&lt;ListWebhooks, ApiError&gt;</code></summary>
+<details><summary><code>client.lists.<a href="/src/api/resources/lists/client.rs">create_webhook</a>(list_id: String, request: AddWebhook) -> Result&lt;CreateWebhookListsResponse, ApiError&gt;</code></summary>
 <dl>
 <dd>
 
