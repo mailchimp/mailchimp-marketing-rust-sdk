@@ -5,6 +5,7 @@
 //! - **root**
 //! - **AccountExports**
 //! - **ActivityFeed**
+//! - **Audiences**
 //! - **AuthorizedApps**
 //! - **automations**
 //! - **BatchWebhooks**
@@ -34,6 +35,7 @@ use crate::{ApiError, ClientConfig};
 
 pub mod account_exports;
 pub mod activity_feed;
+pub mod audiences;
 pub mod authorized_apps;
 pub mod automations;
 pub mod batch_webhooks;
@@ -64,6 +66,7 @@ pub struct MailchimpClient {
     pub root: RootClient,
     pub account_exports: AccountExportsClient,
     pub activity_feed: ActivityFeedClient,
+    pub audiences: AudiencesClient,
     pub authorized_apps: AuthorizedAppsClient,
     pub automations: AutomationsClient,
     pub batch_webhooks: BatchWebhooksClient,
@@ -97,6 +100,7 @@ impl MailchimpClient {
             root: RootClient::new(config.clone())?,
             account_exports: AccountExportsClient::new(config.clone())?,
             activity_feed: ActivityFeedClient::new(config.clone())?,
+            audiences: AudiencesClient::new(config.clone())?,
             authorized_apps: AuthorizedAppsClient::new(config.clone())?,
             automations: AutomationsClient::new(config.clone())?,
             batch_webhooks: BatchWebhooksClient::new(config.clone())?,
@@ -127,6 +131,7 @@ impl MailchimpClient {
 
 pub use account_exports::AccountExportsClient;
 pub use activity_feed::ActivityFeedClient;
+pub use audiences::AudiencesClient;
 pub use authorized_apps::AuthorizedAppsClient;
 pub use automations::AutomationsClient;
 pub use batch_webhooks::BatchWebhooksClient;

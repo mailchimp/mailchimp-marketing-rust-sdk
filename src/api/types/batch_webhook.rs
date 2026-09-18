@@ -16,9 +16,6 @@ pub struct BatchWebhook {
     /// Whether outbound deliveries are HMAC-signed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signing_enabled: Option<bool>,
-    /// The HMAC signing secret. Returned exactly once at creation. This should be stored securely; if lost, delete and recreate the webhook to obtain a new secret.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signing_secret: Option<String>,
     /// A valid URL for the Webhook.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
@@ -37,7 +34,6 @@ pub struct BatchWebhookBuilder {
     enabled: Option<bool>,
     id: Option<String>,
     signing_enabled: Option<bool>,
-    signing_secret: Option<String>,
     url: Option<String>,
 }
 
@@ -62,11 +58,6 @@ impl BatchWebhookBuilder {
         self
     }
 
-    pub fn signing_secret(mut self, value: impl Into<String>) -> Self {
-        self.signing_secret = Some(value.into());
-        self
-    }
-
     pub fn url(mut self, value: impl Into<String>) -> Self {
         self.url = Some(value.into());
         self
@@ -79,7 +70,6 @@ impl BatchWebhookBuilder {
             enabled: self.enabled,
             id: self.id,
             signing_enabled: self.signing_enabled,
-            signing_secret: self.signing_secret,
             url: self.url,
         })
     }

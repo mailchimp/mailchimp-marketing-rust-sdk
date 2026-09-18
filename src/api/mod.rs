@@ -12,8 +12,8 @@ pub mod resources;
 pub mod types;
 
 pub use resources::{
-    AccountExportsClient, ActivityFeedClient, AuthorizedAppsClient, AutomationsClient,
-    BatchWebhooksClient, BatchesClient, CampaignFoldersClient, CampaignsClient,
+    AccountExportsClient, ActivityFeedClient, AudiencesClient, AuthorizedAppsClient,
+    AutomationsClient, BatchWebhooksClient, BatchesClient, CampaignFoldersClient, CampaignsClient,
     ConnectedSitesClient, ConversationsClient, CustomerJourneysClient, EcommerceClient,
     FacebookAdsClient, FileManagerClient, LandingPagesClient, ListsClient, MailchimpClient,
     PingClient, ReportingClient, ReportsClient, RootClient, SearchCampaignsClient,

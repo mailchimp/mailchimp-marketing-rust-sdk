@@ -112,7 +112,7 @@ impl BatchWebhooksClient {
         &self,
         request: &CreateBatchWebhooksRequest,
         options: Option<RequestOptions>,
-    ) -> Result<BatchWebhook, ApiError> {
+    ) -> Result<CreateBatchWebhooksResponse, ApiError> {
         self.http_client
             .execute_request(
                 Method::POST,

@@ -4106,7 +4106,7 @@ impl ListsClient {
         list_id: &str,
         request: &AddWebhook,
         options: Option<RequestOptions>,
-    ) -> Result<ListWebhooks, ApiError> {
+    ) -> Result<CreateWebhookListsResponse, ApiError> {
         self.http_client
             .execute_request(
                 Method::POST,

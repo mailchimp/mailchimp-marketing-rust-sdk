@@ -19,9 +19,6 @@ pub struct ListWebhooks {
     /// Whether outbound deliveries are HMAC-signed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signing_enabled: Option<bool>,
-    /// The HMAC signing secret. Returned exactly once at creation. This should be stored securely; if lost, delete and recreate the webhook to obtain a new secret.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signing_secret: Option<String>,
     /// The possible sources of any events that can trigger the webhook and whether they are enabled.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sources: Option<ListWebhooksSources>,
@@ -44,7 +41,6 @@ pub struct ListWebhooksBuilder {
     id: Option<String>,
     list_id: Option<String>,
     signing_enabled: Option<bool>,
-    signing_secret: Option<String>,
     sources: Option<ListWebhooksSources>,
     url: Option<String>,
 }
@@ -75,11 +71,6 @@ impl ListWebhooksBuilder {
         self
     }
 
-    pub fn signing_secret(mut self, value: impl Into<String>) -> Self {
-        self.signing_secret = Some(value.into());
-        self
-    }
-
     pub fn sources(mut self, value: ListWebhooksSources) -> Self {
         self.sources = Some(value);
         self
@@ -98,7 +89,6 @@ impl ListWebhooksBuilder {
             id: self.id,
             list_id: self.list_id,
             signing_enabled: self.signing_enabled,
-            signing_secret: self.signing_secret,
             sources: self.sources,
             url: self.url,
         })
