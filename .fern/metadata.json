@@ -1,16 +1,16 @@
 {
   "cliVersion": "5.89.4",
   "generatorName": "fernapi/fern-rust-sdk",
-  "generatorVersion": "0.46.4",
+  "generatorVersion": "0.47.9",
   "generatorConfig": {
     "crateName": "mailchimp_marketing",
     "clientClassName": "MailchimpClient",
     "packageLicense": "Apache-2.0",
     "packageRepository": "https://github.com/mailchimp/mailchimp-marketing-rust-sdk"
   },
-  "originGitCommit": "c7a79a5a59233943d93cc6c34bb8e872117c1cb7",
+  "originGitCommit": "4350d02aab162515d80be0d649262d517e59e3c7",
   "originGitCommitIsDirty": false,
   "invokedBy": "ci",
   "ciProvider": "github",
-  "sdkVersion": "0.0.220"
+  "sdkVersion": "0.0.221"
 }

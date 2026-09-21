@@ -24,14 +24,20 @@ generations:
     cli_version: unknown
     generator_versions:
       fernapi/fern-rust-sdk: 0.46.4
-current_generation: 5b7291d9d908313f40cf713ba3c76e705356dcd4
+  - commit_sha: 0336f0b91b0c44b1aa6d373f368c76820e9c97d9
+    tree_hash: 8fcea7d48de978fcc1d10a1c0cbc732cea7e0fc9
+    timestamp: 2026-09-21T15:57:58.545Z
+    cli_version: unknown
+    generator_versions:
+      fernapi/fern-rust-sdk: 0.47.9
+current_generation: 0336f0b91b0c44b1aa6d373f368c76820e9c97d9
 patches:
   - id: patch-219f588c
     content_hash: sha256:5aa0ab7d1c9a8fc8707af20bf7b288559814ade3249c18db4e3a761713e2f91a
     original_commit: 219f588cf66d688909cc47f2cc598f84d9ff9dbe
     original_message: Create LICENSE file
     original_author: Keith Baxter <keith_baxter@intuit.com>
-    base_generation: 5b7291d9d908313f40cf713ba3c76e705356dcd4
+    base_generation: 0336f0b91b0c44b1aa6d373f368c76820e9c97d9
     files:
       - LICENSE
       - NOTICE
