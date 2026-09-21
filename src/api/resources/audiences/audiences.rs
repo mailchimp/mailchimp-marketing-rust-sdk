@@ -79,8 +79,34 @@ impl AudiencesClient {
                 &format!("3.0/audiences/{}/contacts", audience_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .string("cursor", request.cursor.clone())
                     .datetime("created_before", request.created_before.clone())
@@ -208,8 +234,34 @@ impl AudiencesClient {
                 &format!("3.0/audiences/{}/contacts/{}", audience_id, contact_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )

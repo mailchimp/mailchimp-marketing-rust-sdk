@@ -1,5 +1,6 @@
 use crate::api::*;
 use crate::{ApiError, ClientConfig, HttpClient, QueryBuilder, RequestOptions};
+use crate::{AsyncPaginator, PaginationResult};
 use reqwest::Method;
 
 pub struct ReportsClient {
@@ -70,8 +71,34 @@ impl ReportsClient {
                 "3.0/reports",
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .serialize("type", request.r#type.clone())
@@ -81,6 +108,104 @@ impl ReportsClient {
                 options,
             )
             .await
+    }
+
+    pub async fn list_paginated(
+        &self,
+        request: &ReportsListQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .serialize("type", request.r#type.clone())
+            .datetime("before_send_time", request.before_send_time.clone())
+            .datetime("since_send_time", request.since_send_time.clone())
+            .build();
+        let options_clone = options.clone();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            "3.0/reports",
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("reports")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get report details for a specific sent campaign.
@@ -133,8 +258,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -191,8 +342,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/abuse-reports", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -252,8 +429,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/abuse-reports/{}", campaign_id, report_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -310,8 +513,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/advice", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -378,8 +607,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/click-details", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .serialize("sort_field", request.sort_field.clone())
@@ -389,6 +644,107 @@ impl ReportsClient {
                 options,
             )
             .await
+    }
+
+    pub async fn list_click_details_paginated(
+        &self,
+        campaign_id: &str,
+        request: &ListClickDetailsQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .serialize("sort_field", request.sort_field.clone())
+            .serialize("sort_dir", request.sort_dir.clone())
+            .bool("filter_bots", request.filter_bots.clone())
+            .build();
+        let options_clone = options.clone();
+        let campaign_id_clone = campaign_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let campaign_id_for_async = campaign_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/reports/{}/click-details", campaign_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("urls_clicked")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get click details for a specific link in a campaign.
@@ -446,8 +802,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/click-details/{}", campaign_id, link_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .bool("filter_bots", request.filter_bots.clone())
                     .build(),
                 options,
@@ -515,14 +897,144 @@ impl ReportsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_click_detail_members_paginated(
+        &self,
+        campaign_id: &str,
+        link_id: &str,
+        request: &ListClickDetailMembersQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let campaign_id_clone = campaign_id.to_string();
+        let link_id_clone = link_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let campaign_id_for_async = campaign_id_clone.clone();
+                let link_id_for_async = link_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!(
+                                "3.0/reports/{}/click-details/{}/members",
+                                campaign_id_for_async, link_id_for_async
+                            ),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("members")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get information about a specific subscriber who clicked a link in a specific campaign.
@@ -584,8 +1096,34 @@ impl ReportsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -642,8 +1180,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/domain-performance", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -706,8 +1270,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/ecommerce-product-activity", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .serialize("sort_field", request.sort_field.clone())
@@ -715,6 +1305,108 @@ impl ReportsClient {
                 options,
             )
             .await
+    }
+
+    pub async fn list_ecommerce_product_activity_paginated(
+        &self,
+        campaign_id: &str,
+        request: &ListEcommerceProductActivityQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .serialize("sort_field", request.sort_field.clone())
+            .build();
+        let options_clone = options.clone();
+        let campaign_id_clone = campaign_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let campaign_id_for_async = campaign_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!(
+                                "3.0/reports/{}/ecommerce-product-activity",
+                                campaign_id_for_async
+                            ),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("products")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get a summary of social activity for the campaign, tracked by EepURL.
@@ -767,8 +1459,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/eepurl", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -833,8 +1551,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/email-activity", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("since", request.since.clone())
@@ -843,6 +1587,106 @@ impl ReportsClient {
                 options,
             )
             .await
+    }
+
+    pub async fn list_email_activity_paginated(
+        &self,
+        campaign_id: &str,
+        request: &ListEmailActivityQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .string("since", request.since.clone())
+            .bool("filter_bots", request.filter_bots.clone())
+            .build();
+        let options_clone = options.clone();
+        let campaign_id_clone = campaign_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let campaign_id_for_async = campaign_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/reports/{}/email-activity", campaign_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("emails")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get a specific list member's activity in a campaign including opens, clicks, and bounces.
@@ -905,8 +1749,34 @@ impl ReportsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .string("since", request.since.clone())
                     .bool("filter_bots", request.filter_bots.clone())
                     .build(),
@@ -969,14 +1839,138 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/locations", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_locations_paginated(
+        &self,
+        campaign_id: &str,
+        request: &ReportsListLocationsQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let campaign_id_clone = campaign_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let campaign_id_for_async = campaign_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/reports/{}/locations", campaign_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("locations")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get detailed information about any campaign emails that were opened by a list member.
@@ -1041,8 +2035,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/open-details", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("since", request.since.clone())
@@ -1053,6 +2073,108 @@ impl ReportsClient {
                 options,
             )
             .await
+    }
+
+    pub async fn list_open_details_paginated(
+        &self,
+        campaign_id: &str,
+        request: &ListOpenDetailsQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .string("since", request.since.clone())
+            .serialize("sort_field", request.sort_field.clone())
+            .serialize("sort_dir", request.sort_dir.clone())
+            .bool("filter_bots", request.filter_bots.clone())
+            .build();
+        let options_clone = options.clone();
+        let campaign_id_clone = campaign_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let campaign_id_for_async = campaign_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/reports/{}/open-details", campaign_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("members")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get information about a specific subscriber who opened a campaign.
@@ -1113,8 +2235,34 @@ impl ReportsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .bool("filter_bots", request.filter_bots.clone())
                     .build(),
                 options,
@@ -1176,14 +2324,138 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/sent-to", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_sent_to_paginated(
+        &self,
+        campaign_id: &str,
+        request: &ListSentToQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let campaign_id_clone = campaign_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let campaign_id_for_async = campaign_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/reports/{}/sent-to", campaign_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("sent_to")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get information about a specific campaign recipient.
@@ -1239,8 +2511,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/sent-to/{}", campaign_id, subscriber_hash),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -1297,8 +2595,34 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/sub-reports", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -1359,14 +2683,138 @@ impl ReportsClient {
                 &format!("3.0/reports/{}/unsubscribed", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_unsubscribed_paginated(
+        &self,
+        campaign_id: &str,
+        request: &ListUnsubscribedQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let campaign_id_clone = campaign_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let campaign_id_for_async = campaign_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/reports/{}/unsubscribed", campaign_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("unsubscribes")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get information about a specific list member who unsubscribed from a campaign.
@@ -1425,8 +2873,34 @@ impl ReportsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )

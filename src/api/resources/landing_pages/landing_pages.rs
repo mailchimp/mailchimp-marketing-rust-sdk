@@ -68,8 +68,34 @@ impl LandingPagesClient {
                 QueryBuilder::new()
                     .serialize("sort_dir", request.sort_dir.clone())
                     .serialize("sort_field", request.sort_field.clone())
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .build(),
                 options,
@@ -179,8 +205,34 @@ impl LandingPagesClient {
                 &format!("3.0/landing-pages/{}", page_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -424,8 +476,34 @@ impl LandingPagesClient {
                 &format!("3.0/landing-pages/{}/content", page_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )

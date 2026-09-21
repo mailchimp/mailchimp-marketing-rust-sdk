@@ -1,5 +1,6 @@
 use crate::api::*;
 use crate::{ApiError, ClientConfig, HttpClient, QueryBuilder, RequestOptions};
+use crate::{AsyncPaginator, PaginationResult};
 use reqwest::Method;
 
 pub struct EcommerceClient {
@@ -106,8 +107,34 @@ impl EcommerceClient {
                 "3.0/ecommerce/orders",
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("campaign_id", request.campaign_id.clone())
@@ -118,6 +145,105 @@ impl EcommerceClient {
                 options,
             )
             .await
+    }
+
+    pub async fn list_orders_paginated(
+        &self,
+        request: &ListOrdersQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .string("campaign_id", request.campaign_id.clone())
+            .string("outreach_id", request.outreach_id.clone())
+            .string("customer_id", request.customer_id.clone())
+            .bool("has_outreach", request.has_outreach.clone())
+            .build();
+        let options_clone = options.clone();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            "3.0/ecommerce/orders",
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("orders")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Get information about all stores in the account.
@@ -171,14 +297,135 @@ impl EcommerceClient {
                 "3.0/ecommerce/stores",
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_stores_paginated(
+        &self,
+        request: &ListStoresQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            "3.0/ecommerce/stores",
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("stores")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new store to your Mailchimp account.
@@ -292,8 +539,34 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}", store_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -451,14 +724,138 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}/carts", store_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_carts_paginated(
+        &self,
+        store_id: &str,
+        request: &ListStoreCartsQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/ecommerce/stores/{}/carts", store_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("carts")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new cart to a store.
@@ -582,8 +979,34 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}/carts/{}", store_id, cart_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -749,14 +1172,144 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}/carts/{}/lines", store_id, cart_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_cart_lines_paginated(
+        &self,
+        store_id: &str,
+        cart_id: &str,
+        request: &ListStoreCartLinesQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+        let cart_id_clone = cart_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+                let cart_id_for_async = cart_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!(
+                                "3.0/ecommerce/stores/{}/carts/{}/lines",
+                                store_id_for_async, cart_id_for_async
+                            ),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("lines")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new line item to an existing cart.
@@ -877,8 +1430,34 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -1059,8 +1638,34 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}/customers", store_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("email_address", request.email_address.clone())
@@ -1068,6 +1673,105 @@ impl EcommerceClient {
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_customers_paginated(
+        &self,
+        store_id: &str,
+        request: &ListStoreCustomersQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .string("email_address", request.email_address.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/ecommerce/stores/{}/customers", store_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("customers")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new customer to a store.
@@ -1186,8 +1890,34 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -1422,8 +2152,34 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}/orders", store_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("customer_id", request.customer_id.clone())
@@ -1434,6 +2190,108 @@ impl EcommerceClient {
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_orders_paginated(
+        &self,
+        store_id: &str,
+        request: &ListStoreOrdersQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .string("customer_id", request.customer_id.clone())
+            .bool("has_outreach", request.has_outreach.clone())
+            .string("campaign_id", request.campaign_id.clone())
+            .string("outreach_id", request.outreach_id.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/ecommerce/stores/{}/orders", store_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("orders")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new order to a store.
@@ -1576,8 +2434,34 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}/orders/{}", store_id, order_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -1746,14 +2630,144 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_order_lines_paginated(
+        &self,
+        store_id: &str,
+        order_id: &str,
+        request: &ListStoreOrderLinesQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+        let order_id_clone = order_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+                let order_id_for_async = order_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!(
+                                "3.0/ecommerce/stores/{}/orders/{}/lines",
+                                store_id_for_async, order_id_for_async
+                            ),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("lines")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new line item to an existing order.
@@ -1879,8 +2893,34 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -2059,14 +3099,138 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}/products", store_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_products_paginated(
+        &self,
+        store_id: &str,
+        request: &ListStoreProductsQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/ecommerce/stores/{}/products", store_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("products")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new product to a store.
@@ -2194,8 +3358,34 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}/products/{}", store_id, product_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -2429,14 +3619,144 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_product_images_paginated(
+        &self,
+        store_id: &str,
+        product_id: &str,
+        request: &ListStoreProductImagesQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+        let product_id_clone = product_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+                let product_id_for_async = product_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!(
+                                "3.0/ecommerce/stores/{}/products/{}/images",
+                                store_id_for_async, product_id_for_async
+                            ),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("images")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new image to the product.
@@ -2558,8 +3878,34 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -2744,14 +4090,144 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_product_variants_paginated(
+        &self,
+        store_id: &str,
+        product_id: &str,
+        request: &ListStoreProductVariantsQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+        let product_id_clone = product_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+                let product_id_for_async = product_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!(
+                                "3.0/ecommerce/stores/{}/products/{}/variants",
+                                store_id_for_async, product_id_for_async
+                            ),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("variants")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new variant to the product.
@@ -2879,8 +4355,34 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -3120,14 +4622,138 @@ impl EcommerceClient {
                 &format!("3.0/ecommerce/stores/{}/promo-rules", store_id),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_promo_rules_paginated(
+        &self,
+        store_id: &str,
+        request: &ListStorePromoRulesQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!("3.0/ecommerce/stores/{}/promo-rules", store_id_for_async),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("promo_rules")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new promo rule to a store.
@@ -3248,8 +4874,34 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )
@@ -3424,14 +5076,144 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
+    }
+
+    pub async fn list_store_promo_rule_promo_codes_paginated(
+        &self,
+        store_id: &str,
+        promo_rule_id: &str,
+        request: &ListStorePromoRulePromoCodesQueryRequest,
+        options: Option<RequestOptions>,
+    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
+        let http_client = std::sync::Arc::new(self.http_client.clone());
+        let base_query_params = QueryBuilder::new()
+            .string("fields", {
+                let joined = request
+                    .fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .string("exclude_fields", {
+                let joined = request
+                    .exclude_fields
+                    .iter()
+                    .flatten()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            })
+            .int("count", request.count.clone())
+            .build();
+        let options_clone = options.clone();
+        let store_id_clone = store_id.to_string();
+        let promo_rule_id_clone = promo_rule_id.to_string();
+
+        AsyncPaginator::new(
+            http_client,
+            move |client, page_token| {
+                let mut query_params: Vec<(String, String)> =
+                    base_query_params.clone().unwrap_or_default();
+
+                // Use page_token as offset/page number (start from 0 if None)
+                let current_page = page_token.unwrap_or_else(|| "0".to_string());
+                query_params.push(("offset".to_string(), current_page.clone()));
+
+                let options_for_request = options_clone.clone();
+
+                // Clone captured variables to move into the async block
+                let store_id_for_async = store_id_clone.clone();
+                let promo_rule_id_for_async = promo_rule_id_clone.clone();
+
+                Box::pin(async move {
+                    let raw_response = client
+                        .execute_request_raw::<serde_json::Value>(
+                            Method::GET,
+                            &format!(
+                                "3.0/ecommerce/stores/{}/promo-rules/{}/promo-codes",
+                                store_id_for_async, promo_rule_id_for_async
+                            ),
+                            None,
+                            Some(query_params),
+                            options_for_request,
+                        )
+                        .await?;
+                    let response = raw_response.body;
+
+                    // Extract pagination info from response
+                    // Generic field extraction for offset pagination
+                    let items: Vec<serde_json::Value> = response
+                        .get("promo_codes")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.clone())
+                        .unwrap_or_default();
+
+                    let has_next_page = !items.is_empty();
+                    let next_cursor: Option<String> = if has_next_page {
+                        let current_offset: i64 = current_page.parse().unwrap_or(0);
+                        Some((current_offset + 1).to_string())
+                    } else {
+                        None
+                    };
+
+                    Ok(PaginationResult {
+                        items,
+                        next_cursor,
+                        has_next_page,
+                        response: Some(response),
+                        status_code: raw_response.status_code,
+                        headers: raw_response.headers,
+                    })
+                })
+            },
+            None, // Start with page 0
+        )
     }
 
     /// Add a new promo code to a store.
@@ -3549,8 +5331,34 @@ impl EcommerceClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .build(),
                 options,
             )

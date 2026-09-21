@@ -62,8 +62,34 @@ impl SearchCampaignsClient {
                 "3.0/search-campaigns",
                 None,
                 QueryBuilder::new()
-                    .string_array("fields", request.fields.clone())
-                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string("fields", {
+                        let joined = request
+                            .fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
+                    .string("exclude_fields", {
+                        let joined = request
+                            .exclude_fields
+                            .iter()
+                            .flatten()
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if joined.is_empty() {
+                            None
+                        } else {
+                            Some(joined)
+                        }
+                    })
                     .structured_query("query", request.query.clone())
                     .build(),
                 options,
