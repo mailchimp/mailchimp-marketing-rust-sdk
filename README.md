@@ -26,7 +26,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mailchimp_marketing = "1.0.2"
+mailchimp_marketing = "1.0.3"
 ```
 
 Or install via cargo:
