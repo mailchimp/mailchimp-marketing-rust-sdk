@@ -1,6 +1,5 @@
 use crate::api::*;
 use crate::{ApiError, ClientConfig, HttpClient, QueryBuilder, RequestOptions};
-use crate::{AsyncPaginator, PaginationResult};
 use reqwest::Method;
 
 pub struct CampaignsClient {
@@ -91,34 +90,8 @@ impl CampaignsClient {
                 "3.0/campaigns",
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .serialize("type", request.r#type.clone())
@@ -144,120 +117,6 @@ impl CampaignsClient {
                 options,
             )
             .await
-    }
-
-    pub async fn list_paginated(
-        &self,
-        request: &CampaignsListQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .serialize("type", request.r#type.clone())
-            .serialize("status", request.status.clone())
-            .datetime("before_send_time", request.before_send_time.clone())
-            .datetime("since_send_time", request.since_send_time.clone())
-            .datetime("before_create_time", request.before_create_time.clone())
-            .datetime("since_create_time", request.since_create_time.clone())
-            .string("list_id", request.list_id.clone())
-            .string("folder_id", request.folder_id.clone())
-            .string("member_id", request.member_id.clone())
-            .serialize("sort_field", request.sort_field.clone())
-            .serialize("sort_dir", request.sort_dir.clone())
-            .bool(
-                "include_resend_shortcut_eligibility",
-                request.include_resend_shortcut_eligibility.clone(),
-            )
-            .bool(
-                "include_resend_shortcut_usage",
-                request.include_resend_shortcut_usage.clone(),
-            )
-            .build();
-        let options_clone = options.clone();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            "3.0/campaigns",
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("campaigns")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Create a new Mailchimp campaign.
@@ -370,34 +229,8 @@ impl CampaignsClient {
                 &format!("3.0/campaigns/{}", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .bool(
                         "include_resend_shortcut_eligibility",
                         request.include_resend_shortcut_eligibility.clone(),
@@ -988,34 +821,8 @@ impl CampaignsClient {
                 &format!("3.0/campaigns/{}/content", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -1124,34 +931,8 @@ impl CampaignsClient {
                 &format!("3.0/campaigns/{}/feedback", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -1265,34 +1046,8 @@ impl CampaignsClient {
                 &format!("3.0/campaigns/{}/feedback/{}", campaign_id, feedback_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -1451,34 +1206,8 @@ impl CampaignsClient {
                 &format!("3.0/campaigns/{}/send-checklist", campaign_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )

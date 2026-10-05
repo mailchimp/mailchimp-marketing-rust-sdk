@@ -14,12 +14,14 @@ impl BatchSubscribeOrUnsubscribeListsRequestMembersItem {
     pub fn as_value(&self) -> Option<&serde_json::Value> {
         match self {
             Self::Value(value) => Some(value),
+            _ => None,
         }
     }
 
     pub fn into_value(self) -> Option<serde_json::Value> {
         match self {
             Self::Value(value) => Some(value),
+            _ => None,
         }
     }
 }

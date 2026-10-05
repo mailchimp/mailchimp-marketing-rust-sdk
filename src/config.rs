@@ -43,7 +43,7 @@ impl Default for ClientConfig {
                     "X-Fern-SDK-Name".to_string(),
                     "mailchimp_marketing".to_string(),
                 ),
-                ("X-Fern-SDK-Version".to_string(), "0.0.221".to_string()),
+                ("X-Fern-SDK-Version".to_string(), "1.0.2".to_string()),
             ]),
             user_agent: "Api Rust SDK".to_string(),
             reqwest_client: None,

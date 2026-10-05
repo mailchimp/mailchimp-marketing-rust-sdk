@@ -1,6 +1,5 @@
 use crate::api::*;
 use crate::{ApiError, ClientConfig, HttpClient, QueryBuilder, RequestOptions};
-use crate::{AsyncPaginator, PaginationResult};
 use reqwest::Method;
 
 pub struct ListsClient {
@@ -83,34 +82,8 @@ impl ListsClient {
                 "3.0/lists",
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("before_date_created", request.before_date_created.clone())
@@ -135,119 +108,6 @@ impl ListsClient {
                 options,
             )
             .await
-    }
-
-    pub async fn list_paginated(
-        &self,
-        request: &ListsListQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .string("before_date_created", request.before_date_created.clone())
-            .string("since_date_created", request.since_date_created.clone())
-            .string(
-                "before_campaign_last_sent",
-                request.before_campaign_last_sent.clone(),
-            )
-            .string(
-                "since_campaign_last_sent",
-                request.since_campaign_last_sent.clone(),
-            )
-            .string("email", request.email.clone())
-            .serialize("sort_field", request.sort_field.clone())
-            .serialize("sort_dir", request.sort_dir.clone())
-            .bool("has_ecommerce_store", request.has_ecommerce_store.clone())
-            .bool(
-                "include_total_contacts",
-                request.include_total_contacts.clone(),
-            )
-            .build();
-        let options_clone = options.clone();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            "3.0/lists",
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("lists")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Create a new list in your Mailchimp account.
@@ -372,34 +232,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .bool(
                         "include_total_contacts",
                         request.include_total_contacts.clone(),
@@ -622,138 +456,14 @@ impl ListsClient {
                 &format!("3.0/lists/{}/abuse-reports", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
-    }
-
-    pub async fn list_abuse_reports_paginated(
-        &self,
-        list_id: &str,
-        request: &ListsListAbuseReportsQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!("3.0/lists/{}/abuse-reports", list_id_for_async),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("abuse_reports")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Get details about a specific abuse report.
@@ -813,34 +523,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/abuse-reports/{}", list_id, report_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
@@ -903,138 +587,14 @@ impl ListsClient {
                 &format!("3.0/lists/{}/activity", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
-    }
-
-    pub async fn list_activity_paginated(
-        &self,
-        list_id: &str,
-        request: &ListActivityQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!("3.0/lists/{}/activity", list_id_for_async),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("activity")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Get a list of the top email clients based on user-agent strings.
@@ -1087,34 +647,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/clients", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -1179,34 +713,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/growth-history", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .serialize("sort_field", request.sort_field.clone())
@@ -1215,106 +723,6 @@ impl ListsClient {
                 options,
             )
             .await
-    }
-
-    pub async fn list_growth_history_paginated(
-        &self,
-        list_id: &str,
-        request: &ListGrowthHistoryQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .serialize("sort_field", request.sort_field.clone())
-            .serialize("sort_dir", request.sort_dir.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!("3.0/lists/{}/growth-history", list_id_for_async),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("history")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Get a summary of a specific list's growth activity for a specific month and year.
@@ -1370,34 +778,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/growth-history/{}", list_id, month),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -1464,34 +846,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/interest-categories", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("type", request.r#type.clone())
@@ -1501,107 +857,6 @@ impl ListsClient {
                 options,
             )
             .await
-    }
-
-    pub async fn list_interest_categories_paginated(
-        &self,
-        list_id: &str,
-        request: &ListInterestCategoriesQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .string("type", request.r#type.clone())
-            .serialize("sort_field", request.sort_field.clone())
-            .serialize("sort_dir", request.sort_dir.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!("3.0/lists/{}/interest-categories", list_id_for_async),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("categories")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Create a new interest category.
@@ -1714,34 +969,8 @@ impl ListsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -1920,144 +1149,14 @@ impl ListsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
-    }
-
-    pub async fn list_interest_category_interests_paginated(
-        &self,
-        list_id: &str,
-        interest_category_id: &str,
-        request: &ListInterestCategoryInterestsQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-        let interest_category_id_clone = interest_category_id.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-                let interest_category_id_for_async = interest_category_id_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!(
-                                "3.0/lists/{}/interest-categories/{}/interests",
-                                list_id_for_async, interest_category_id_for_async
-                            ),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("interests")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Create a new interest or 'group name' for a specific category.
@@ -2178,34 +1277,8 @@ impl ListsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -2380,34 +1453,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/locations", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -2498,34 +1545,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/members", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("email_type", request.email_type.clone())
@@ -2547,119 +1568,6 @@ impl ListsClient {
                 options,
             )
             .await
-    }
-
-    pub async fn list_members_paginated(
-        &self,
-        list_id: &str,
-        request: &ListMembersQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .string("email_type", request.email_type.clone())
-            .serialize("status", request.status.clone())
-            .string("since_timestamp_opt", request.since_timestamp_opt.clone())
-            .string("before_timestamp_opt", request.before_timestamp_opt.clone())
-            .string("since_last_changed", request.since_last_changed.clone())
-            .string("before_last_changed", request.before_last_changed.clone())
-            .string("unique_email_id", request.unique_email_id.clone())
-            .bool("vip_only", request.vip_only.clone())
-            .string("interest_category_id", request.interest_category_id.clone())
-            .string("interest_ids", request.interest_ids.clone())
-            .serialize("interest_match", request.interest_match.clone())
-            .serialize("sort_field", request.sort_field.clone())
-            .serialize("sort_dir", request.sort_dir.clone())
-            .bool("since_last_campaign", request.since_last_campaign.clone())
-            .string("unsubscribed_since", request.unsubscribed_since.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!("3.0/lists/{}/members", list_id_for_async),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("members")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Add a new member to the list.
@@ -2787,34 +1695,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/members/{}", list_id, subscriber_hash),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -3114,48 +1996,9 @@ impl ListsClient {
                 &format!("3.0/lists/{}/members/{}/activity", list_id, subscriber_hash),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("action", {
-                        let joined = request
-                            .action
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .serialize_array("action", request.action.clone())
                     .build(),
                 options,
             )
@@ -3224,172 +2067,15 @@ impl ListsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
-                    .string("activity_filters", {
-                        let joined = request
-                            .activity_filters
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .serialize_array("activity_filters", request.activity_filters.clone())
                     .build(),
                 options,
             )
             .await
-    }
-
-    pub async fn list_member_activity_feed_paginated(
-        &self,
-        list_id: &str,
-        subscriber_hash: &str,
-        request: &ListMemberActivityFeedQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .string("activity_filters", {
-                let joined = request
-                    .activity_filters
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-        let subscriber_hash_clone = subscriber_hash.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-                let subscriber_hash_for_async = subscriber_hash_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!(
-                                "3.0/lists/{}/members/{}/activity-feed",
-                                list_id_for_async, subscriber_hash_for_async
-                            ),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("activity")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Get events for a contact.
@@ -3451,142 +2137,12 @@ impl ListsClient {
                 QueryBuilder::new()
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
             .await
-    }
-
-    pub async fn list_member_events_paginated(
-        &self,
-        list_id: &str,
-        subscriber_hash: &str,
-        request: &ListMemberEventsQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .int("count", request.count.clone())
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-        let subscriber_hash_clone = subscriber_hash.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-                let subscriber_hash_for_async = subscriber_hash_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!(
-                                "3.0/lists/{}/members/{}/events",
-                                list_id_for_async, subscriber_hash_for_async
-                            ),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("events")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Add an event for a list member.
@@ -3700,34 +2256,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/members/{}/goals", list_id, subscriber_hash),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -3797,146 +2327,14 @@ impl ListsClient {
                 QueryBuilder::new()
                     .serialize("sort_field", request.sort_field.clone())
                     .serialize("sort_dir", request.sort_dir.clone())
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
-    }
-
-    pub async fn list_member_notes_paginated(
-        &self,
-        list_id: &str,
-        subscriber_hash: &str,
-        request: &ListMemberNotesQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .serialize("sort_field", request.sort_field.clone())
-            .serialize("sort_dir", request.sort_dir.clone())
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-        let subscriber_hash_clone = subscriber_hash.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-                let subscriber_hash_for_async = subscriber_hash_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!(
-                                "3.0/lists/{}/members/{}/notes",
-                                list_id_for_async, subscriber_hash_for_async
-                            ),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("notes")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Add a new note for a specific subscriber.
@@ -4053,34 +2451,8 @@ impl ListsClient {
                 ),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .build(),
                 options,
             )
@@ -4262,144 +2634,14 @@ impl ListsClient {
                 &format!("3.0/lists/{}/members/{}/tags", list_id, subscriber_hash),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .build(),
                 options,
             )
             .await
-    }
-
-    pub async fn list_member_tags_paginated(
-        &self,
-        list_id: &str,
-        subscriber_hash: &str,
-        request: &ListMemberTagsQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-        let subscriber_hash_clone = subscriber_hash.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-                let subscriber_hash_for_async = subscriber_hash_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!(
-                                "3.0/lists/{}/members/{}/tags",
-                                list_id_for_async, subscriber_hash_for_async
-                            ),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("tags")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Add or remove tags from a list member. If a tag that does not exist is passed in and set as 'active', a new tag will be created.
@@ -4519,34 +2761,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/merge-fields", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("type", request.r#type.clone())
@@ -4555,106 +2771,6 @@ impl ListsClient {
                 options,
             )
             .await
-    }
-
-    pub async fn list_merge_fields_paginated(
-        &self,
-        list_id: &str,
-        request: &ListMergeFieldsQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .string("type", request.r#type.clone())
-            .bool("required", request.required.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!("3.0/lists/{}/merge-fields", list_id_for_async),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("merge_fields")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Add a new merge field for a specific audience.
@@ -4770,34 +2886,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/merge-fields/{}", list_id, merge_id),
                 None,
                 QueryBuilder::new()
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("exclude_fields", request.exclude_fields.clone())
+                    .string_array("fields", request.fields.clone())
                     .build(),
                 options,
             )
@@ -4978,34 +3068,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/segments", list_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .string("type", request.r#type.clone())
@@ -5024,116 +3088,6 @@ impl ListsClient {
                 options,
             )
             .await
-    }
-
-    pub async fn list_segments_paginated(
-        &self,
-        list_id: &str,
-        request: &ListSegmentsQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .string("type", request.r#type.clone())
-            .string("since_created_at", request.since_created_at.clone())
-            .string("before_created_at", request.before_created_at.clone())
-            .bool("include_cleaned", request.include_cleaned.clone())
-            .bool(
-                "include_transactional",
-                request.include_transactional.clone(),
-            )
-            .bool("include_unsubscribed", request.include_unsubscribed.clone())
-            .string("since_updated_at", request.since_updated_at.clone())
-            .string("before_updated_at", request.before_updated_at.clone())
-            .serialize("exclude_type", request.exclude_type.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!("3.0/lists/{}/segments", list_id_for_async),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("segments")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Create a new segment in a specific list.
@@ -5249,34 +3203,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/segments/{}", list_id, segment_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .bool("include_cleaned", request.include_cleaned.clone())
                     .bool(
                         "include_transactional",
@@ -5509,34 +3437,8 @@ impl ListsClient {
                 &format!("3.0/lists/{}/segments/{}/members", list_id, segment_id),
                 None,
                 QueryBuilder::new()
-                    .string("fields", {
-                        let joined = request
-                            .fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
-                    .string("exclude_fields", {
-                        let joined = request
-                            .exclude_fields
-                            .iter()
-                            .flatten()
-                            .map(|value| value.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined)
-                        }
-                    })
+                    .string_array("fields", request.fields.clone())
+                    .string_array("exclude_fields", request.exclude_fields.clone())
                     .int("count", request.count.clone())
                     .int("offset", request.offset.clone())
                     .bool("include_cleaned", request.include_cleaned.clone())
@@ -5549,116 +3451,6 @@ impl ListsClient {
                 options,
             )
             .await
-    }
-
-    pub async fn list_segment_members_paginated(
-        &self,
-        list_id: &str,
-        segment_id: &str,
-        request: &ListSegmentMembersQueryRequest,
-        options: Option<RequestOptions>,
-    ) -> Result<AsyncPaginator<serde_json::Value>, ApiError> {
-        let http_client = std::sync::Arc::new(self.http_client.clone());
-        let base_query_params = QueryBuilder::new()
-            .string("fields", {
-                let joined = request
-                    .fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .string("exclude_fields", {
-                let joined = request
-                    .exclude_fields
-                    .iter()
-                    .flatten()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
-            })
-            .int("count", request.count.clone())
-            .bool("include_cleaned", request.include_cleaned.clone())
-            .bool(
-                "include_transactional",
-                request.include_transactional.clone(),
-            )
-            .bool("include_unsubscribed", request.include_unsubscribed.clone())
-            .build();
-        let options_clone = options.clone();
-        let list_id_clone = list_id.to_string();
-        let segment_id_clone = segment_id.to_string();
-
-        AsyncPaginator::new(
-            http_client,
-            move |client, page_token| {
-                let mut query_params: Vec<(String, String)> =
-                    base_query_params.clone().unwrap_or_default();
-
-                // Use page_token as offset/page number (start from 0 if None)
-                let current_page = page_token.unwrap_or_else(|| "0".to_string());
-                query_params.push(("offset".to_string(), current_page.clone()));
-
-                let options_for_request = options_clone.clone();
-
-                // Clone captured variables to move into the async block
-                let list_id_for_async = list_id_clone.clone();
-                let segment_id_for_async = segment_id_clone.clone();
-
-                Box::pin(async move {
-                    let raw_response = client
-                        .execute_request_raw::<serde_json::Value>(
-                            Method::GET,
-                            &format!(
-                                "3.0/lists/{}/segments/{}/members",
-                                list_id_for_async, segment_id_for_async
-                            ),
-                            None,
-                            Some(query_params),
-                            options_for_request,
-                        )
-                        .await?;
-                    let response = raw_response.body;
-
-                    // Extract pagination info from response
-                    // Generic field extraction for offset pagination
-                    let items: Vec<serde_json::Value> = response
-                        .get("members")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.clone())
-                        .unwrap_or_default();
-
-                    let has_next_page = !items.is_empty();
-                    let next_cursor: Option<String> = if has_next_page {
-                        let current_offset: i64 = current_page.parse().unwrap_or(0);
-                        Some((current_offset + 1).to_string())
-                    } else {
-                        None
-                    };
-
-                    Ok(PaginationResult {
-                        items,
-                        next_cursor,
-                        has_next_page,
-                        response: Some(response),
-                        status_code: raw_response.status_code,
-                        headers: raw_response.headers,
-                    })
-                })
-            },
-            None, // Start with page 0
-        )
     }
 
     /// Add a member to a static segment.
